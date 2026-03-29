@@ -25,3 +25,4 @@ transcoder/output/
 # Editor
 .vscode/settings.json
 *.swp
+LiveOps_Claude_Code_Prompt.md
