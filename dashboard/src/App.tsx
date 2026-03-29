@@ -14,16 +14,17 @@ export function App() {
   const { connected, latest, history, events, latestQc } = useMetricsSocket(WS_URL);
   const { event: orchEvent, available: orchAvailable, refresh: orchRefresh } = useOrchestrator(ORCHESTRATOR_URL);
 
-  // Uptime — starts counting when pipeline first goes ACTIVE
+  // Uptime — starts counting when pipeline first enters any running state
   const [uptime, setUptime] = useState(0);
   const uptimeStartRef = useRef<number | null>(null);
   const lastStateRef = useRef<string>('IDLE');
 
   useEffect(() => {
-    if (latest?.state === 'ACTIVE' && lastStateRef.current !== 'ACTIVE') {
-      if (uptimeStartRef.current === null) {
-        uptimeStartRef.current = Date.now();
-      }
+    const RUNNING = new Set(['ACTIVE', 'FAILOVER', 'RECOVERY']);
+    const isRunning = RUNNING.has(latest?.state ?? '');
+    const wasRunning = RUNNING.has(lastStateRef.current);
+    if (isRunning && !wasRunning && uptimeStartRef.current === null) {
+      uptimeStartRef.current = Date.now();
     }
     if (latest?.state === 'IDLE' && lastStateRef.current !== 'IDLE') {
       uptimeStartRef.current = null;

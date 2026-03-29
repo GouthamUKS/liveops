@@ -76,7 +76,8 @@ export class LiveTranscoder {
     const args: string[] = [
       '-hide_banner',
       '-loglevel', 'warning',
-      '-stats',
+      '-nostats',
+      '-progress', 'pipe:2',   // structured key=value progress → stderr; reports bitrate even with multi-output
       '-i', inputUrl,
     ];
 
@@ -123,22 +124,38 @@ export class LiveTranscoder {
     });
   }
 
-  // Parse FFmpeg stats line:
-  // frame= 150 fps= 25 q=28.0 size=    1024kB time=00:00:06.00 bitrate=1398.1kbits/s speed=1.01x
-  private parseMetrics(line: string): void {
-    const fps = line.match(/fps=\s*([\d.]+)/);
-    const bitrate = line.match(/bitrate=\s*([\d.]+)kbits\/s/);
-    const speed = line.match(/speed=\s*([\d.]+)x/);
-    const time = line.match(/time=(\d+:\d+:\d+\.\d+)/);
+  // Parse FFmpeg -progress pipe:2 output (one key=value per line).
+  // A progress block ends with "progress=continue" or "progress=end".
+  // Example block:
+  //   fps=25.00
+  //   bitrate=8748.4kbits/s
+  //   out_time=00:01:20.000000
+  //   speed=0.983x
+  //   progress=continue
+  private parseMetrics(chunk: string): void {
+    for (const raw of chunk.split('\n')) {
+      const line = raw.trim();
+      const eq = line.indexOf('=');
+      if (eq < 0) continue;
+      const key = line.slice(0, eq).trim();
+      const val = line.slice(eq + 1).trim();
 
-    let updated = false;
-    if (fps) { this.metrics.fps = parseFloat(fps[1]); updated = true; }
-    if (bitrate) { this.metrics.bitrate = parseFloat(bitrate[1]); updated = true; }
-    if (speed) { this.metrics.speed = parseFloat(speed[1]); }
-    if (time) { this.metrics.elapsed = time[1]; }
-
-    if (updated) {
-      this.onMetricsUpdate?.(this.getMetrics());
+      switch (key) {
+        case 'fps':    { const v = parseFloat(val); if (!isNaN(v)) this.metrics.fps = v; break; }
+        case 'speed':  { const v = parseFloat(val); if (!isNaN(v)) this.metrics.speed = v; break; }
+        case 'out_time': { this.metrics.elapsed = val; break; }
+        case 'bitrate': {
+          // format: "8748.4kbits/s"
+          const m = val.match(/([\d.]+)kbits\/s/);
+          if (m) this.metrics.bitrate = parseFloat(m[1]);
+          break;
+        }
+        case 'progress': {
+          // block complete — fire callback
+          this.onMetricsUpdate?.(this.getMetrics());
+          break;
+        }
+      }
     }
   }
 

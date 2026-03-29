@@ -42,19 +42,22 @@ nms.on('postPublish', (_id, streamPath, _args) => {
   console.log(`[rtmp] Stream publishing: ${streamPath}`);
 
   if (streamPath === '/live/primary') {
-    activeSource = 'primary';
+    const wasInFailover = failover.getState() === 'FAILOVER';
     failover.onPrimaryConnected();
 
-    setTimeout(() => {
-      // Only start if failover hasn't already switched us to backup
-      if (failover.getState() !== 'FAILOVER') {
+    if (!wasInFailover) {
+      // Fresh start — no failover in progress; take over immediately
+      activeSource = 'primary';
+      setTimeout(() => {
         transcoder.start(`rtmp://${RTMP_HOST}:1935/live/primary`);
         setTimeout(() => {
           injector.start();
           failover.start();
         }, 8000);
-      }
-    }, 2000);
+      }, 2000);
+    }
+    // If wasInFailover: stay on backup — the recovery state machine counts
+    // 3 healthy segments then calls onSwitch(primaryUrl) to switch back.
   }
 
   if (streamPath === '/live/backup' && activeSource === 'none') {

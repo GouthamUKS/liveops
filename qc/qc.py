@@ -212,6 +212,12 @@ def check_loudness(path: str) -> CheckResult:
         return CheckResult('loudness', 'WARN', 0.0, 'LUFS', 'cannot parse ebur128 output')
 
     lufs = float(match.group(1))
+
+    # Near-silence / test tone — very low LUFS is expected for slate/colour-bars, not a real failure
+    if lufs < -50.0:
+        return CheckResult('loudness', 'WARN', round(lufs, 1), 'LUFS',
+                           f'{lufs:.1f} LUFS — near silence / test signal')
+
     deviation = abs(lufs - LUFS_TARGET)
 
     if deviation <= LUFS_MAX_DEV:
@@ -228,14 +234,28 @@ def check_loudness(path: str) -> CheckResult:
 
 
 def check_black_level(path: str) -> CheckResult:
-    """signalstats YMIN — detect frozen black / lost signal."""
-    stderr = run_ffmpeg_filter(path, vf='signalstats=stat=tout+vrep+brng')
-    if stderr is None:
-        # Video stream absent (audio-only) — not a failure
+    """signalstats YMIN — detect frozen black / lost signal.
+
+    Uses metadata=print:file=pipe:1 to pipe per-frame stats to stdout,
+    which is reliably captured regardless of FFmpeg loglevel settings.
+    """
+    cmd = [
+        'ffmpeg', '-i', path, '-hide_banner', '-loglevel', 'error',
+        '-vf', 'signalstats,metadata=print:file=pipe:1',
+        '-f', 'null', '-',
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        output = result.stdout
+    except Exception as exc:
+        log.warning('ffmpeg signalstats error: %s', exc)
         return CheckResult('black_level', 'PASS', 255.0, 'IRE', 'no video stream')
 
-    # Extract all YMIN values
-    ymin_values = [float(v) for v in re.findall(r'YMIN=(\d+\.?\d*)', stderr)]
+    if not output:
+        return CheckResult('black_level', 'PASS', 255.0, 'IRE', 'no signalstats output (video may be absent)')
+
+    # metadata=print outputs lines like: lavfi.signalstats.YMIN=16
+    ymin_values = [float(v) for v in re.findall(r'lavfi\.signalstats\.YMIN=(\d+\.?\d*)', output)]
     if not ymin_values:
         return CheckResult('black_level', 'PASS', 255.0, 'IRE', 'no signalstats output (video may be absent)')
 
