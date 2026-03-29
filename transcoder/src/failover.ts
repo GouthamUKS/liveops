@@ -82,7 +82,8 @@ export class FailoverMonitor {
     this.primaryRtmpActive = false;
     console.log('[failover] Primary RTMP disconnected');
 
-    if (this.state === 'HEALTHY' || this.state === 'DEGRADED') {
+    if (this.state === 'HEALTHY' || this.state === 'DEGRADED' || this.state === 'RECOVERY') {
+      this.recoveryCount = 0;
       this.doFailover('primary stream disconnected');
     }
   }
