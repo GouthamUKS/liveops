@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/gouthamsoratoor/Documents/01_G_Workspace/01_Projects/Liveops/dashboard/src/components -type f -name *.tsx)",
+      "Bash(grep -r \"localhost\\\\|127\\\\.0\\\\.0\\\\.1\" /Users/gouthamsoratoor/Documents/01_G_Workspace/01_Projects/Liveops --include=*.ts --include=*.tsx --include=*.py --include=*.yml --include=*.yaml)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"VITE\\\\|import.meta.env\" /Users/gouthamsoratoor/Documents/01_G_Workspace/01_Projects/Liveops/dashboard/src/*.tsx /Users/gouthamsoratoor/Documents/01_G_Workspace/01_Projects/Liveops/dashboard/src/**/*.tsx)",
+      "Bash(docker compose:*)",
+      "Bash(xargs -r kill -9)",
+      "Bash(docker info:*)",
+      "Read(//Users/gouthamsoratoor/.docker/run/**)",
+      "Read(//var/run/**)",
+      "Bash(docker context:*)",
+      "Bash(lsof -iTCP -sTCP:LISTEN -P)"
+    ]
+  }
+}

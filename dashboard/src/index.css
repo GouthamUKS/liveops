@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  background: #0a0a0a;
+  color: #e0e0e0;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
+/* Scrollbar — dark NOC style */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #111;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Pulse animation for active status dot */
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 4px #00ff88; }
+  50%       { box-shadow: 0 0 10px #00ff88, 0 0 20px #00ff8844; }
+}
+@keyframes pulse-yellow {
+  0%, 100% { box-shadow: 0 0 4px #ffcc00; }
+  50%       { box-shadow: 0 0 10px #ffcc00, 0 0 20px #ffcc0044; }
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 4px #ff4444; }
+  50%       { box-shadow: 0 0 10px #ff4444, 0 0 20px #ff444444; }
+}
+
+.pulse-green  { animation: pulse-green  2s ease-in-out infinite; }
+.pulse-yellow { animation: pulse-yellow 1s ease-in-out infinite; }
+.pulse-red    { animation: pulse-red    0.8s ease-in-out infinite; }

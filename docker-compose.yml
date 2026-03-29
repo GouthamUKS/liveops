@@ -1,0 +1,133 @@
+services:
+
+  # ── Transcoder (must start first — RTMP server) ───────────────────────────
+  transcoder:
+    build: ./transcoder
+    restart: unless-stopped
+    ports:
+      - "1935:1935"   # RTMP ingest
+      - "3011:3001"   # Metrics WebSocket  (3011 avoids conflict with other projects)
+      - "3012:3002"   # HTTP health endpoint
+    volumes:
+      - hls-output:/output
+    environment:
+      - OUTPUT_DIR=/output
+      - METRICS_PORT=3001
+      - HEALTH_PORT=3002
+      - RTMP_HOST=127.0.0.1
+    networks:
+      - liveops
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  # ── Origin (Nginx HLS server) ─────────────────────────────────────────────
+  origin:
+    build: ./origin
+    restart: unless-stopped
+    ports:
+      - "8090:80"   # 8090 avoids conflict with other projects on 8080
+    volumes:
+      - hls-output:/usr/share/nginx/html/live:ro
+    depends_on:
+      - transcoder
+    networks:
+      - liveops
+
+  # ── Primary ingest (loops a media file as a live RTMP feed) ──────────────
+  ingest-primary:
+    build: ./ingest
+    restart: unless-stopped
+    environment:
+      - MODE=primary
+      - INPUT_FILE=/media/sample.mp4
+      - RTMP_TARGET=rtmp://transcoder:1935/live/primary
+    volumes:
+      - ./media:/media:ro
+    depends_on:
+      transcoder:
+        condition: service_healthy
+    networks:
+      - liveops
+
+  # ── Backup ingest (colour bars / slate — always running) ─────────────────
+  ingest-backup:
+    build: ./ingest
+    restart: unless-stopped
+    environment:
+      - MODE=backup
+      - SLATE_IMAGE=/media/slate.png
+      - RTMP_TARGET=rtmp://transcoder:1935/live/backup
+    volumes:
+      - ./media:/media:ro
+    depends_on:
+      transcoder:
+        condition: service_healthy
+    networks:
+      - liveops
+
+  # ── Event Orchestration API ───────────────────────────────────────────────
+  orchestrator:
+    build: ./orchestrator
+    restart: unless-stopped
+    ports:
+      - "5001:5000"   # 5001 avoids conflict with macOS AirPlay Receiver on 5000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # container lifecycle management
+      - orchestrator-data:/data
+    environment:
+      - TRANSCODER_API_URL=http://transcoder:3002
+      - ORIGIN_URL=http://origin
+      - DB_PATH=/data/liveops.db
+      - ARCHIVE_DIR=/data/archive
+      - PORT=5000
+    depends_on:
+      - transcoder
+      - origin
+    networks:
+      - liveops
+
+  # ── Inline Stream QC ─────────────────────────────────────────────────────
+  qc:
+    build: ./qc
+    restart: unless-stopped
+    environment:
+      - HLS_BASE_URL=http://origin/live
+      - TRANSCODER_API_URL=http://transcoder:3002
+      - CHECK_INTERVAL=30
+      - QC_VARIANT=480p
+    depends_on:
+      transcoder:
+        condition: service_healthy
+      origin:
+        condition: service_started
+    networks:
+      - liveops
+
+  # ── NOC Dashboard (React + Vite dev server) ──────────────────────────────
+  dashboard:
+    build: ./dashboard
+    restart: unless-stopped
+    ports:
+      - "3030:3000"   # 3030 avoids conflict with other projects on 3000
+    environment:
+      - VITE_WS_URL=ws://localhost:3011
+      - VITE_ORCHESTRATOR_URL=http://localhost:5001
+      - VITE_TRANSCODER_URL=http://localhost:3012
+    depends_on:
+      - transcoder
+    networks:
+      - liveops
+
+volumes:
+  hls-output:
+    driver: local
+  orchestrator-data:
+    driver: local
+
+networks:
+  liveops:
+    driver: bridge

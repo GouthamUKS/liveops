@@ -1,0 +1,27 @@
+# Node
+node_modules/
+dist/
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Data / runtime artifacts
+orchestrator/data/
+*.db
+*.db-wal
+*.db-shm
+
+# HLS output (generated at runtime)
+transcoder/output/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/settings.json
+*.swp
