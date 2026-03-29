@@ -26,3 +26,6 @@ transcoder/output/
 .vscode/settings.json
 *.swp
 LiveOps_Claude_Code_Prompt.md
+
+# Claude Code
+.claude/
