@@ -2,6 +2,8 @@
 
 A fully containerised cloud live streaming operations platform built to demonstrate production-grade streaming infrastructure. Covers the full broadcast pipeline from RTMP ingest through ABR transcoding, HLS delivery, ad insertion, automatic failover, and stream quality control — all observable through a real-time NOC dashboard.
 
+![LiveOps NOC Dashboard](docs/dashboard.png)
+
 ---
 
 ## Architecture
@@ -276,3 +278,23 @@ GET    /health
 │   └── Dockerfile
 └── media/                  Mount point for source video (gitignored)
 ```
+
+---
+
+## Relationship to other projects
+
+This platform extends and connects three earlier projects in my portfolio:
+
+- **[AWS Video Transcoder](https://github.com/GouthamUKS/AWS_VideoTranscoder)** — Same FFmpeg encoding patterns (ABR variants, HLS packaging), elevated from file-based single-invocation Lambda to continuous real-time encoding with a sliding window. LiveOps proves the same transcoding logic works under live constraints where there's no "done" state.
+
+- **[Stream Health Monitor](https://github.com/GouthamUKS/Stream_Monitor)** — The NOC dashboard concept originated here, but Stream Monitor uses simulated metrics (Gaussian noise). LiveOps replaces that with real metrics parsed from a running FFmpeg pipeline — actual ingest bitrate, actual segment durations, actual failover state transitions.
+
+- **[Broadcast QC Scanner](https://github.com/GouthamUKS/QC_Scanner)** — The same broadcast QC checks (IRE black level, LUFS loudness, channel mapping) applied in real-time during a live event rather than post-delivery. This shifts the QC workflow from "diagnose and resubmit" (my Zee Kannada TC rejection experience) to "detect and alert before viewers are affected."
+
+---
+
+## Limitations
+
+This platform uses RTMP for ingest, not SMPTE 2110 or SRT — those require specialised network configuration that can't be simulated locally. The SCTE-35 implementation uses HLS tag-based signaling (`EXT-X-CUE-OUT` / `EXT-X-CUE-IN`) rather than binary MPEG-TS splice_insert — the tag approach is what most OTT platforms actually use in production. Satellite distribution and multicast are physical infrastructure concerns outside the scope of a containerised demo.
+
+The inline QC runs periodic checks every 30 seconds rather than continuous frame-level analysis — production systems like Interra Baton or Tektronix Cerify operate at wire speed, but the detection patterns (loudness deviation, black level violation, bitrate drift) are the same.
